@@ -3,6 +3,8 @@ from __future__ import print_function
 from imutils.video import VideoStream
 from imutils.video import FPS
 from imutils import paths 
+from pygame import mixer 
+from ar_markers import detect_markers
 
 import argparse
 import imutils
@@ -13,20 +15,40 @@ import cv2
 import matplotlib.pyplot as plt 
 import pandas as pd
 from sklearn.cluster import KMeans
+#from ar_markers import detect_markers 
 
 #def isInside((x1, y1, x2, y2), (x3, y3, x4, y4)):
     #check whether (x1, y1, x2, y2) is inside (x3, y3, x4, y4):
+ 
+def criboverlap(x1,y1,x2,y2,x,y):
+    if (x1<=x and x<=x2) and (y1<=y and y<=y2): #point is inside the crib - 이걸로 다른 위험 영역도 커버 가능 
+        x1=x1+10 
+        y1=y1+10
+        x2=x2-10
+        y2=y2-10
+        if (x1<=x and x<=x2) and (y1<=y and y<=y2):
+            return False 
+        else : 
+            return True 
 
+    else : 
+        return False 
+
+def abs(a, b):
+    if a-b<0:
+        return b-a 
+    else : 
+        return a-b 
 
 ap = argparse.ArgumentParser()
 """
 ap.add_argument("-p", "--prototxt", required=True,
-	help="path to Caffe 'deploy' prototxt file")
+    help="path to Caffe 'deploy' prototxt file")
 ap.add_argument("-m", "--model", required=True,
-	help="path to Caffe pre-trained model")
+    help="path to Caffe pre-trained model")
 """
 ap.add_argument("-c", "--confidence", type=float, default=0.2,
-	help="minimum probability to filter weak detections")
+    help="minimum probability to filter weak detections")
 args = vars(ap.parse_args())
 
 # initialize the list of class labels MobileNet SSD was trained to
@@ -45,7 +67,9 @@ net = cv2.dnn.readNetFromCaffe('ssd.prototxt.txt', 'ssd.caffemodel')
 # and initialize the FPS counter
 print("[INFO] starting video stream...")
 vs = cv2.VideoCapture(0)
-
+mixer.init()
+mixer.music.load('instruction1.mp3') 
+mixer.music.play()
 # init camera
 #camera = cv2.VideoCapture(0) ### <<<=== SET THE CORRECT CAMERA NUMBER
 #camera.set(3,1280)             # set frame width
@@ -59,24 +83,76 @@ plt.axis([0, 1000, 0, 1000])
 master = None
 centx=-1
 centy=-1
+intersectcnt=0
+intersectfrm=0
+startX=0
+startY=0
+endX=0
+endY=0
+modeset=0
+points = []
+tempx=-1
+tempy=-1
+cnt3=0
+flag=0 #0 means does not exist / 1 means exist 
 
+while 1: 
+    frame_captured, frame = vs.read() 
+    markers = detect_markers(frame)
+    for marker in markers:
+        marker.highlite_marker(frame)
+        print(marker.center)
+        if tempx>=0: 
+            if abs(marker.center[0],tempx)<=5 and abs(marker.center[1], tempy)<=5:
+                if(cnt3==40):
+                    flag=0
+                    for point in points: 
+                        if (abs(point[0], marker.center[0])<=5 and abs(point[1], marker.center[1])<=5): flag=1
+                    if flag==0:
+                        mixer.music.load('instruction2.mp3')
+                        mixer.music.play()
+                        points.append((tempx, tempy))
+                        cnt3=0
+                        tempx=-1
+                        tempy=-1  
+                cnt3+=1
+        tempx = marker.center[0]
+        tempy = marker.center[1]
+        print(marker.center)
+        print(points)
+    for point in points:
+        cv2.circle(frame,(point[0],point[1]),2,(0,0,255),2)
+    cv2.imshow('Test Frame', frame)
+
+    if cv2.waitKey(1) & 0xFF == ord('q'):
+        break
+
+cv2.destroyAllWindows()
+    
 while 1:
      
-
+    if intersectfrm!=0 : intersectfrm+=1
     df = pd.DataFrame(columns=['x','y'])
     
     midpoints=[]
     # grab a frame
     (grabbed,frame0) = vs.read()
+    
+    #markers = detect_markers(frame0)
+
+    #for marker in markers:
+    #    marker.highlite_marker(frame)
+
+
     frame0 = imutils.resize(frame0, width=1000)
     framek = frame0.copy() 
     framek = imutils.resize(framek, width=1000)
 
     #the bar of the bed - will be added in future editions 
-    barStartX = 0
-    barStartY = 0
-    barEndX = framek.shape[1]
-    barEndY = framek.shape[0]
+    barStartX = 80
+    barStartY = 80
+    barEndX = framek.shape[1]-80
+    barEndY = framek.shape[0]-80
  
 
     (h, w) = framek.shape[:2]
@@ -169,17 +245,17 @@ while 1:
                 if contours[i][j][k][1]<ymin:ymin=contours[i][j][k][1]
                 #print(contours[i][j][k][0], contours[i][j][k][1])
 
-    centx = (xmin+xmax)/2
-    centy = (ymin+ymax)/2
+    centx = (startX+endX)/2
+    centy = (startY+endY)/2
     plt.scatter(centx, centy)
     plt.pause(0.05)
-    print("이번 centx : "+str(centx))
-    print("이번 centy : "+str(centy))
-    print("이전 centx : "+str(tmpx))
-    print("이전 centy : "+str(tmpy))
+    #print("이번 centx : "+str(centx))
+    #print("이번 centy : "+str(centy))
+    #print("이전 centx : "+str(tmpx))
+    #print("이전 centy : "+str(tmpy))
     
-    if centx > tmpx : print("오른쪽으로 이동중")
-    elif centx < tmpx : print("왼쪽으로 이동중")
+    #if centx > tmpx : print("오른쪽으로 이동중")
+    #elif centx < tmpx : print("왼쪽으로 이동중")
     
     index=0
     frame10 = frame0.copy()
@@ -213,6 +289,23 @@ while 1:
         ##epsilon2 = 0.1*cv2.arcLength(c, True)
         # save target contours
         targets.append((cx,cy,ca))
+
+        if criboverlap(barStartX, barStartY, barEndX, barEndY, cx, cy)==True: #baby escaping from the crib
+            if intersectfrm > 100: 
+                if intersectcnt>70:
+                    intersectcnt=0
+                    intersectfrm=0
+                    print("Dangerous Signal")
+                else : 
+                    intersectcnt=0
+                    intersectfrm=0
+                    print("False Signal")
+            intersectcnt+=1
+            if intersectfrm==0: 
+                intersectfrm+=1
+            print("Movement in the boundary")
+            print("Frames Counted Since: "+str(intersectfrm))
+            print("Moves Counted Since: "+str(intersectcnt))
     
     # make target
     mx = 0
@@ -227,9 +320,10 @@ while 1:
             
         
 
-    print(midpoints)
+    #print(midpoints)
     
     cv2.rectangle(framek, (barStartX, barStartY), (barEndX, barEndY), (0,255,0), 2)
+    cv2.rectangle(framek, (barStartX+20, barStartY+20), (barEndX-20, barEndY-20), (255,0,0), 2)
     
     if targets:
         
@@ -268,9 +362,9 @@ while 1:
     #cv2.imshow("Frame3: Delta",frame3)
     #cv2.imshow("Frame4: Threshold",frame4)
     #cv2.imshow("Frame5: Dialated",frame5)
-    cv2.imshow("Frame6: Contours",frame6)
+    #cv2.imshow("Frame6: Contours",frame6)
     #cv2.imshow("Frame7: Target",frame7)
-    cv2.imshow("Frame10: Movement", frame10)
+    #cv2.imshow("Frame10: Movement", frame10)
     cv2.imshow("Frame11: Body Parts+Human", framek)
     #cv2.imshow("Frame12: Human Detection", framek)
 

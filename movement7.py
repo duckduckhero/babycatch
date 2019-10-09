@@ -14,6 +14,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 from sklearn.cluster import KMeans
 
+
 #def isInside((x1, y1, x2, y2), (x3, y3, x4, y4)):
     #check whether (x1, y1, x2, y2) is inside (x3, y3, x4, y4):
 
@@ -73,10 +74,20 @@ while 1:
     framek = imutils.resize(framek, width=1000)
 
     #the bar of the bed - will be added in future editions 
-    barStartX = 0
-    barStartY = 0
-    barEndX = framek.shape[1]
-    barEndY = framek.shape[0]
+    barStartX = 80
+    barStartY = 80
+    barEndX = framek.shape[1]-80
+    barEndY = framek.shape[0]-80
+
+    barinnerSX = barStartX+20
+    barinnerSY = barStartY+20
+    barinnerEX = barEndX-20
+    BarinnerEY = barEndY-20
+
+    barouterSX = barStartX-20
+    barouterSY = barStartY-20
+    barouterEX = barEndX+20
+    barouterEY = barEndY+20
  
 
     (h, w) = framek.shape[:2]

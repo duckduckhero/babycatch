@@ -8,7 +8,7 @@ from sklearn.cluster import KMeans
 
 
 # init camera
-camera = cv2.VideoCapture(0) ### <<<=== SET THE CORRECT CAMERA NUMBER
+camera = cv2.VideoCapture('Video2.mp4') ### <<<=== SET THE CORRECT CAMERA NUMBER
 #camera.set(3,1280)             # set frame width
 #camera.set(4,720)              # set frame height
 time.sleep(0.5)
